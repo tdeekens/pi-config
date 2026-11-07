@@ -1,0 +1,27 @@
+{
+  "$comment": "Footer colors follow the active pi theme (kanagawa-wave). Theme role names only, so the footer updates when the theme changes.",
+  "colors": {
+    "model": "accent",
+    "shellMode": "borderAccent",
+    "path": "text",
+    "gitClean": "success",
+    "gitDirty": "warning",
+    "thinking": "thinkingOff",
+    "thinkingMinimal": "thinkingMinimal",
+    "thinkingLow": "thinkingLow",
+    "thinkingMedium": "thinkingMedium",
+    "thinkingHigh": "rainbow",
+    "thinkingXhigh": "rainbow",
+    "thinkingMax": "rainbow",
+    "context": "dim",
+    "contextWarn": "warning",
+    "contextError": "error",
+    "cacheHit": "success",
+    "cacheHitWarn": "warning",
+    "cacheHitError": "error",
+    "cost": "text",
+    "tokens": "muted",
+    "separator": "dim",
+    "border": "borderMuted"
+  }
+}

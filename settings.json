@@ -1,0 +1,67 @@
+{
+  "lastChangelogVersion": "1.5.0",
+  "theme": "kanagawa-wave",
+  "powerline": {
+    "customItems": [
+      {
+        "id": "budget",
+        "statusKey": "budget",
+        "position": "right",
+        "color": "accent"
+      }
+    ],
+    "layout": {
+      "left": [
+        "model",
+        "thinking",
+        "path",
+        "git",
+        "shell_mode"
+      ],
+      "right": [
+        "custom:budget",
+        "token_in",
+        "token_out",
+        "cache_read",
+        "cache_write",
+        "context_pct",
+        "context_total",
+        "cost"
+      ],
+      "secondary": [
+        "extension_statuses",
+        "time_spent",
+        "time",
+        "session"
+      ]
+    }
+  },
+  "defaultProvider": "example-ai",
+  "defaultModel": "claude-haiku-5-5",
+  "enabledModels": [
+    "example-ai/claude-opus-5-5",
+    "example-ai/claude-sonnet-5-5",
+    "example-ai/claude-haiku-5-5"
+  ],
+  "packages": [
+    "npm:pi-subagents",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:@narumitw/pi-btw",
+    "npm:pi-web-access",
+    "npm:pi-lens",
+    "npm:pi-powerline-footer",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:cc-safety-net",
+    "npm:@heyhuynhgiabuu/pi-diff",
+    "npm:@heyhuynhgiabuu/pi-pretty"
+  ],
+  "workingVibe": "pirate",
+  "workingVibeModel": "example-ai/claude-haiku-5-5",
+  "extensionChangelogVersions": {
+    "{\"source\":\"npm:pi-subagents\",\"scope\":\"user\"}": "0.84.0",
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0",
+    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.4.8",
+    "{\"source\":\"npm:pi-powerline-footer\",\"scope\":\"user\"}": "0.22.0",
+    "{\"source\":\"npm:@heyhuynhgiabuu/pi-pretty\",\"scope\":\"user\"}": "0.9.0"
+  }
+}
