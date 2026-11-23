@@ -41,6 +41,13 @@
       ]
     }
   },
+  "compaction": {
+    "modelOverrides": {
+      "example-ai/claude-opus-5-5": { "reserveTokens": 500000 },
+      "example-ai/claude-sonnet-5-5": { "reserveTokens": 600000 },
+      "example-ai/claude-haiku-5-5": { "reserveTokens": 700000 }
+    }
+  },
   "defaultProvider": "example-ai",
   "defaultModel": "claude-haiku-5-5",
   "enabledModels": [
