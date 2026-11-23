@@ -8,7 +8,7 @@
 // Estimates only: spend from other machines is not counted, and example's own accounting
 // is the source of truth.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -34,7 +34,7 @@ interface BudgetConfig {
 
 // Defaults: budget from the example rollout post and the Vertex list-price table.
 const DEFAULT_CONFIG: BudgetConfig = {
-	limits: { dailyEur: 40, weeklyEur: 92, monthlyEur: 400 },
+	limits: { dailyEur: 50, weeklyEur: 150, monthlyEur: 600 },
 	rolloutDate: "2000-01-01",
 	weeklyResetDay: "thursday",
 	prices: {
@@ -121,6 +121,7 @@ interface SpendRecord {
 	ts: number; // epoch ms
 	model: string;
 	eur: number;
+	session?: string; // session id; absent on records written before per-session tracking
 }
 
 function priceFor(config: BudgetConfig, model: string): Price | undefined {
@@ -184,20 +185,29 @@ function sumSince(records: SpendRecord[], since: number): number {
 	return total;
 }
 
-function renderStatus(config: BudgetConfig): string {
+function sumSession(records: SpendRecord[], sessionId: string): number {
+	let total = 0;
+	for (const r of records) if (r.session === sessionId) total += r.eur;
+	return total;
+}
+
+function renderStatus(config: BudgetConfig, sessionId: string): string {
 	const now = new Date();
 	const rollout = Date.parse(`${config.rolloutDate}T00:00:00Z`);
 	const records = readLedger();
 	const day = sumSince(records, Math.max(dayStart(now), rollout));
 	const week = sumSince(records, Math.max(weekStart(now, config.weeklyResetDay), rollout));
 	const month = sumSince(records, Math.max(monthStart(now), rollout));
+	const session = sumSession(records, sessionId);
 	const { dailyEur, weeklyEur, monthlyEur } = config.limits;
-	return `budget day €${day.toFixed(2)}/€${dailyEur} · week €${week.toFixed(2)}/€${weeklyEur} · month €${month.toFixed(2)}/€${monthlyEur} (est)`;
+	return `budget day €${day.toFixed(2)}/€${dailyEur} · week €${week.toFixed(2)}/€${weeklyEur} · month €${month.toFixed(2)}/€${monthlyEur} · session €${session.toFixed(2)} (est)`;
 }
 
 export default function (pi: ExtensionAPI) {
 	let config: BudgetConfig = structuredClone(DEFAULT_CONFIG);
 	const reported = new Set<string>();
+	let watchers: FSWatcher[] = [];
+	let debounce: ReturnType<typeof setTimeout> | undefined;
 
 	/** Re-read budget.json and report problems once per distinct message. */
 	function reload(ctx: ExtensionContext): void {
@@ -214,11 +224,59 @@ export default function (pi: ExtensionAPI) {
 
 	function refresh(ctx: ExtensionContext): void {
 		if (!ctx.hasUI) return;
-		ctx.ui.setStatus(STATUS_KEY, renderStatus(config));
+		ctx.ui.setStatus(STATUS_KEY, renderStatus(config, ctx.sessionManager.getSessionId()));
+	}
+
+	/** Refresh when budget.json or the ledger changes on disk, debounced to coalesce bursts of events. */
+	function onFileChange(ctx: ExtensionContext): void {
+		if (debounce) clearTimeout(debounce);
+		debounce = setTimeout(() => {
+			debounce = undefined;
+			reload(ctx);
+			refresh(ctx);
+		}, 150);
+	}
+
+	function startWatching(ctx: ExtensionContext): void {
+		stopWatching();
+		// Ensure both directories exist so they can be watched before the first write.
+		mkdirSync(dirname(LEDGER), { recursive: true });
+		const targets: [string, string][] = [
+			[AGENT_DIR, "budget.json"],
+			[dirname(LEDGER), "spend.jsonl"],
+		];
+		for (const [dir, file] of targets) {
+			try {
+				const watcher = watch(dir, (_event, filename) => {
+					if (filename === file) onFileChange(ctx);
+				});
+				watcher.on("error", () => stopWatching());
+				watchers.push(watcher);
+			} catch {
+				// Watching is best-effort; the per-turn refresh still applies.
+			}
+		}
+	}
+
+	function stopWatching(): void {
+		for (const watcher of watchers) watcher.close();
+		watchers = [];
+		if (debounce) clearTimeout(debounce);
+		debounce = undefined;
 	}
 
 	pi.on("session_start", async (_event, ctx) => {
 		reload(ctx);
+		refresh(ctx);
+		if (ctx.hasUI) startWatching(ctx);
+	});
+
+	pi.on("session_shutdown", async () => {
+		stopWatching();
+	});
+
+	// Other sessions may have spent since the last refresh; catch up before each turn.
+	pi.on("turn_start", async (_event, ctx) => {
 		refresh(ctx);
 	});
 
@@ -238,7 +296,7 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		appendRecord({ ts: Date.now(), model, eur });
+		appendRecord({ ts: Date.now(), model, eur, session: ctx.sessionManager.getSessionId() });
 		refresh(ctx);
 	});
 }

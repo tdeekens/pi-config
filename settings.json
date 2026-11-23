@@ -1,6 +1,6 @@
 {
   "lastChangelogVersion": "1.5.0",
-  "theme": "kanagawa-wave",
+  "theme": "opencode-catppuccin",
   "powerline": {
     "customItems": [
       {
@@ -8,6 +8,12 @@
         "statusKey": "budget",
         "position": "right",
         "color": "accent"
+      },
+      {
+        "id": "context-meter",
+        "statusKey": "context-meter",
+        "position": "right",
+        "selfColorize": true
       }
     ],
     "layout": {
@@ -20,12 +26,11 @@
       ],
       "right": [
         "custom:budget",
+        "custom:context-meter",
         "token_in",
         "token_out",
         "cache_read",
         "cache_write",
-        "context_pct",
-        "context_total",
         "cost"
       ],
       "secondary": [
@@ -58,10 +63,11 @@
   "workingVibe": "pirate",
   "workingVibeModel": "example-ai/claude-haiku-5-5",
   "extensionChangelogVersions": {
-    "{\"source\":\"npm:pi-subagents\",\"scope\":\"user\"}": "0.84.0",
-    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.46.0",
-    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.4.8",
+    "{\"source\":\"npm:pi-subagents\",\"scope\":\"user\"}": "0.89.2",
+    "{\"source\":\"npm:pi-web-access\",\"scope\":\"user\"}": "0.48.0",
+    "{\"source\":\"npm:pi-lens\",\"scope\":\"user\"}": "4.5.1",
     "{\"source\":\"npm:pi-powerline-footer\",\"scope\":\"user\"}": "0.22.0",
-    "{\"source\":\"npm:@heyhuynhgiabuu/pi-pretty\",\"scope\":\"user\"}": "0.9.0"
+    "{\"source\":\"npm:@heyhuynhgiabuu/pi-pretty\",\"scope\":\"user\"}": "0.10.2",
+    "{\"source\":\"npm:@narumitw/pi-btw\",\"scope\":\"user\"}": "0.63.8"
   }
 }
