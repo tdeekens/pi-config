@@ -11,7 +11,7 @@ Personal pi coding agent config. Synced with `sync.sh` (allowlisted files only; 
 
 - `settings.json`: theme, powerline layout, model defaults, packages
 - `mcp.json`: MCP servers (`example` via `example-cli mcp`, Atlassian remote MCP). After a pull, sign in with `pi mcp login atlassian`.
-- `extensions/budget/`: example EUR budget estimate in the footer (`budget.json` holds limits and prices)
+- `extensions/budget/`: example EUR budget estimate. Compact coloured footer (`~€ d ▰▱▱ 18/50  w …  m … · s 3.60`) plus a `/budget` overlay; `budget.json` holds limits and prices. Test with `node --experimental-strip-types extensions/budget/test.ts`.
 - `extensions/context-meter/`: context bar in the footer plus a `/context` grid overlay. Test with `node --experimental-strip-types extensions/context-meter/test.ts`.
 - `extensions/answer.ts`, `goal.ts`, `session-breakdown.ts`: `/answer`, `/goal`, `/session-breakdown`
 - `themes/`: Kanagawa Wave, OpenCode ports (ayu, catppuccin, kanagawa, tokyonight), Princess Nam Rom

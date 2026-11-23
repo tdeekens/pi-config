@@ -7,7 +7,7 @@
         "id": "budget",
         "statusKey": "budget",
         "position": "right",
-        "color": "accent"
+        "selfColorize": true
       },
       {
         "id": "context-meter",

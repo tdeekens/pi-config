@@ -25,6 +25,8 @@ FILES=(
   "themes/opencode-tokyonight.json"
   "themes/princess-nam-rom.json"
   "extensions/budget/index.ts"
+  "extensions/budget/render.ts"
+  "extensions/budget/test.ts"
   "extensions/context-meter/index.ts"
   "extensions/context-meter/breakdown.ts"
   "extensions/context-meter/meter.ts"

@@ -12,6 +12,9 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, watch, type FSWatc
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import { Container, isKeyRelease, Text } from "@earendil-works/pi-tui";
+import { type Painter, plainPainter, renderFooter, renderOverlay, type Totals } from "./render.ts";
 
 const STATUS_KEY = "budget";
 const AGENT_DIR = join(homedir(), ".pi", "agent");
@@ -191,16 +194,36 @@ function sumSession(records: SpendRecord[], sessionId: string): number {
 	return total;
 }
 
-function renderStatus(config: BudgetConfig, sessionId: string): string {
+const DAY_MS = 86_400_000;
+
+/** Spend per window with each window's limit and next reset. */
+function computeTotals(config: BudgetConfig, sessionId: string): Totals {
 	const now = new Date();
 	const rollout = Date.parse(`${config.rolloutDate}T00:00:00Z`);
 	const records = readLedger();
-	const day = sumSince(records, Math.max(dayStart(now), rollout));
-	const week = sumSince(records, Math.max(weekStart(now, config.weeklyResetDay), rollout));
-	const month = sumSince(records, Math.max(monthStart(now), rollout));
-	const session = sumSession(records, sessionId);
+	const dStart = dayStart(now);
+	const wStart = weekStart(now, config.weeklyResetDay);
+	const mStart = monthStart(now);
 	const { dailyEur, weeklyEur, monthlyEur } = config.limits;
-	return `budget day €${day.toFixed(2)}/€${dailyEur} · week €${week.toFixed(2)}/€${weeklyEur} · month €${month.toFixed(2)}/€${monthlyEur} · session €${session.toFixed(2)} (est)`;
+	return {
+		periods: [
+			{ key: "d", label: "Day", spent: sumSince(records, Math.max(dStart, rollout)), limit: dailyEur, resetsAt: dStart + DAY_MS },
+			{ key: "w", label: "Week", spent: sumSince(records, Math.max(wStart, rollout)), limit: weeklyEur, resetsAt: wStart + 7 * DAY_MS },
+			{
+				key: "m",
+				label: "Month",
+				spent: sumSince(records, Math.max(mStart, rollout)),
+				limit: monthlyEur,
+				resetsAt: Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+			},
+		],
+		session: sumSession(records, sessionId),
+	};
+}
+
+function painterFor(ctx: ExtensionContext): Painter {
+	const theme = ctx.ui.theme;
+	return { fg: (color, text) => theme.fg(color, text), bold: (text) => theme.bold(text) };
 }
 
 export default function (pi: ExtensionAPI) {
@@ -224,7 +247,7 @@ export default function (pi: ExtensionAPI) {
 
 	function refresh(ctx: ExtensionContext): void {
 		if (!ctx.hasUI) return;
-		ctx.ui.setStatus(STATUS_KEY, renderStatus(config, ctx.sessionManager.getSessionId()));
+		ctx.ui.setStatus(STATUS_KEY, renderFooter(computeTotals(config, ctx.sessionManager.getSessionId()), painterFor(ctx)));
 	}
 
 	/** Refresh when budget.json or the ledger changes on disk, debounced to coalesce bursts of events. */
@@ -264,6 +287,38 @@ export default function (pi: ExtensionAPI) {
 		if (debounce) clearTimeout(debounce);
 		debounce = undefined;
 	}
+
+	pi.registerCommand("budget", {
+		description: "Show estimated spend per day, week and month against your limits",
+		handler: async (_args, ctx) => {
+			reload(ctx);
+			const totals = computeTotals(config, ctx.sessionManager.getSessionId());
+			if (!ctx.hasUI) {
+				console.log(["Budget (estimate)", "", ...renderOverlay(totals, plainPainter)].join("\n"));
+				return;
+			}
+			await ctx.ui.custom<undefined>(
+				(_tui, theme, _keybindings, done) => {
+					const painter: Painter = { fg: (c, t) => theme.fg(c, t), bold: (t) => theme.bold(t) };
+					const border = (s: string) => theme.fg("borderAccent", s);
+					const container = new Container();
+					container.addChild(new DynamicBorder(border));
+					container.addChild(new Text(theme.fg("accent", theme.bold("Budget (estimate)")), 1, 1));
+					for (const line of renderOverlay(totals, painter)) container.addChild(new Text(line, 2, 0));
+					container.addChild(new Text(theme.fg("dim", "Press any key to close"), 1, 1));
+					container.addChild(new DynamicBorder(border));
+					return {
+						render: (width: number) => container.render(width),
+						invalidate: () => container.invalidate(),
+						handleInput: (data: string) => {
+							if (!isKeyRelease(data)) done(undefined);
+						},
+					};
+				},
+				{ overlay: true },
+			);
+		},
+	});
 
 	pi.on("session_start", async (_event, ctx) => {
 		reload(ctx);
