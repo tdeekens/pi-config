@@ -14,13 +14,25 @@
         "statusKey": "context-meter",
         "position": "right",
         "selfColorize": true
+      },
+      {
+        "id": "thinking-dots",
+        "statusKey": "thinking-dots",
+        "position": "left",
+        "selfColorize": true
+      },
+      {
+        "id": "smart-path",
+        "statusKey": "smart-path",
+        "position": "left",
+        "selfColorize": true
       }
     ],
     "layout": {
       "left": [
         "model",
-        "thinking",
-        "path",
+        "custom:thinking-dots",
+        "custom:smart-path",
         "git",
         "shell_mode"
       ],
