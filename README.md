@@ -3,9 +3,11 @@
 Personal [pi](https://pi.dev) coding agent config. Shared, generic settings live here; machine- or employer-specific values live in local overlays that are never committed.
 
 ```sh
-./sync.sh pull   # repo base + overlays -> ~/.pi/agent
-./sync.sh push   # ~/.pi/agent -> repo (copyable files) or overlays (local-only files)
+./sync.mjs pull   # repo base + overlays -> ~/.pi/agent
+./sync.mjs push   # ~/.pi/agent -> repo (copyable files) or budget.local.json (local-only)
 ```
+
+Needs Node 18.3+. No other dependencies. Run `./sync.mjs --help` for usage.
 
 ## Layers
 
@@ -17,10 +19,10 @@ Config is built from layers. Later layers win.
 
 ```sh
 # Default: just ./.local
-./sync.sh pull
+./sync.mjs pull
 
 # Work machine: shared base, then a private overlay repo, then local
-PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/.local:$HOME/work/pi-overlay" ./sync.sh pull
+PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/.local:$HOME/work/pi-overlay" ./sync.mjs pull
 ```
 
 Sibling `*.local.json` files apply to `settings.json`, `mcp.json`, and `budget.json`. Overlay directories can hold any allowlisted file. The last layer wins for files that are not merged.
@@ -35,7 +37,7 @@ Other files: the last layer that has the file wins.
 
 `budget.json` is local-only: it has no repo base, so it comes only from `budget.local.json` and overlays. Start from `budget.example.json`.
 
-`./sync.sh push` writes `budget.json` back to `budget.local.json`. It skips `settings.json` and `mcp.json`, because those are composed and should be edited in the repo or in a local sibling.
+`./sync.mjs push` writes `budget.json` back to `budget.local.json`. It skips `settings.json` and `mcp.json`, because those are composed and should be edited in the repo or in a local sibling.
 
 Project-level `.pi/mcp.json` and `.pi/settings.json` inside a repo are a further layer that pi applies itself. Use them for servers a single project needs.
 
@@ -45,7 +47,7 @@ Project-level `.pi/mcp.json` and `.pi/settings.json` inside a repo are a further
 cp budget.example.json budget.local.json   # then set your limits and model prices
 # optional: settings.local.json for default model, enabledModels, compaction overrides
 # optional: mcp.local.json for servers that need your own commands or credentials
-./sync.sh pull
+./sync.mjs pull
 ```
 
 Example `settings.local.json` (model IDs are whatever your provider exposes):
