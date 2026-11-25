@@ -5,10 +5,14 @@
 #   ./sync.sh push   copy allowlisted files from ~/.pi/agent back to the repo or overlays
 #
 # Layers, later wins:
-#   1. repo base: this directory (committed, generic)
-#   2. overlays: PI_CONFIG_OVERLAYS, a colon-separated list of directories.
-#      Default: ./local (gitignored). Example for a work machine:
-#        PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/local:$HOME/work/pi-overlay" ./sync.sh pull
+#   1. repo base: this directory (committed, generic), e.g. mcp.json
+#   2. sibling override: <name>.local.json next to a merged base file, e.g. mcp.local.json
+#   3. overlays: PI_CONFIG_OVERLAYS, a colon-separated list of directories.
+#      Default: ./.local (gitignored). Example for a work machine:
+#        PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/.local:$HOME/work/pi-overlay" ./sync.sh pull
+#
+# Sibling *.local.json files and .local/ are gitignored. Keep credentials out of them
+# and use ${ENV_VAR} references instead.
 #
 # Merge rules for MERGED files (settings.json, mcp.json):
 #   - objects merge recursively
@@ -24,7 +28,7 @@ set -euo pipefail
 
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-OVERLAY_SPEC="${PI_CONFIG_OVERLAYS:-$REPO_DIR/local}"
+OVERLAY_SPEC="${PI_CONFIG_OVERLAYS:-$REPO_DIR/.local}"
 IFS=':' read -r -a OVERLAYS <<< "$OVERLAY_SPEC"
 
 FILES=(
@@ -91,11 +95,15 @@ check_secrets() {
 
 pull() {
   echo "Building $AGENT_DIR from base + overlays (${OVERLAYS[*]}):"
-  local rel dst o src
+  local rel dst o src sibling
   for rel in "${FILES[@]}"; do
     local sources=()
     if ! contains "$rel" "${LOCAL_ONLY[@]}" && [[ -f "$REPO_DIR/$rel" ]]; then
       sources+=("$REPO_DIR/$rel")
+    fi
+    if contains "$rel" "${MERGED[@]}"; then
+      sibling="$REPO_DIR/${rel%.json}.local.json"
+      [[ -f "$sibling" ]] && sources+=("$sibling")
     fi
     for o in "${OVERLAYS[@]}"; do
       [[ -f "$o/$rel" ]] && sources+=("$o/$rel")

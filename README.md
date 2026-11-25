@@ -11,16 +11,19 @@ Personal [pi](https://pi.dev) coding agent config. Shared, generic settings live
 
 Config is built from layers. Later layers win.
 
-1. **Repo base** (this directory): generic, committed.
-2. **Overlays**: directories listed in `PI_CONFIG_OVERLAYS` (colon-separated). Default: `./local/` (gitignored).
+1. **Repo base** (this directory): generic, committed. For example `mcp.json`.
+2. **Sibling override**: `<name>.local.json` next to a merged base file. For example `mcp.local.json` overrides `mcp.json`. Gitignored.
+3. **Overlays**: directories listed in `PI_CONFIG_OVERLAYS` (colon-separated). Default: `./.local/` (gitignored).
 
 ```sh
-# Default: just ./local
+# Default: just ./.local
 ./sync.sh pull
 
 # Work machine: shared base, then a private overlay repo, then local
-PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/local:$HOME/work/pi-overlay" ./sync.sh pull
+PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/.local:$HOME/work/pi-overlay" ./sync.sh pull
 ```
+
+Sibling `*.local.json` files apply to `settings.json` and `mcp.json`. Overlay directories can hold any allowlisted file. The last layer wins for files that are not merged.
 
 Merge rules for `settings.json` and `mcp.json`:
 
@@ -37,14 +40,14 @@ Project-level `.pi/mcp.json` and `.pi/settings.json` inside a repo are a further
 ## Setting up a machine
 
 ```sh
-mkdir -p local
-cp budget.example.json local/budget.json   # then set your limits and model prices
-# optional: local/settings.json for default model, enabledModels, compaction overrides
-# optional: local/mcp.json for servers that need your own commands or credentials
+mkdir -p .local
+cp budget.example.json .local/budget.json   # then set your limits and model prices
+# optional: .local/settings.json for default model, enabledModels, compaction overrides
+# optional: mcp.local.json for servers that need your own commands or credentials
 ./sync.sh pull
 ```
 
-Example `local/settings.json` (model IDs are whatever your provider exposes):
+Example `.local/settings.json` (model IDs are whatever your provider exposes):
 
 ```json
 {
@@ -54,7 +57,7 @@ Example `local/settings.json` (model IDs are whatever your provider exposes):
 }
 ```
 
-Example `local/mcp.json`:
+Example `mcp.local.json`:
 
 ```json
 {
