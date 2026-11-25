@@ -11,9 +11,9 @@ Personal [pi](https://pi.dev) coding agent config. Shared, generic settings live
 
 Config is built from layers. Later layers win.
 
-1. **Repo base** (this directory): generic, committed. For example `mcp.json`.
-2. **Sibling override**: `<name>.local.json` next to a merged base file. For example `mcp.local.json` overrides `mcp.json`. Gitignored.
-3. **Overlays**: directories listed in `PI_CONFIG_OVERLAYS` (colon-separated). Default: `./.local/` (gitignored).
+1. **Repo base** (this directory): generic, committed. For example `settings.json`, `mcp.json`.
+2. **Sibling override**: `<name>.local.json` next to a merged file, e.g. `settings.local.json`, `mcp.local.json`, `budget.local.json`. Gitignored.
+3. **Overlays**: directories listed in `PI_CONFIG_OVERLAYS` (colon-separated). Default: `./.local/` (gitignored), for any other allowlisted file.
 
 ```sh
 # Default: just ./.local
@@ -23,9 +23,9 @@ Config is built from layers. Later layers win.
 PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/.local:$HOME/work/pi-overlay" ./sync.sh pull
 ```
 
-Sibling `*.local.json` files apply to `settings.json` and `mcp.json`. Overlay directories can hold any allowlisted file. The last layer wins for files that are not merged.
+Sibling `*.local.json` files apply to `settings.json`, `mcp.json`, and `budget.json`. Overlay directories can hold any allowlisted file. The last layer wins for files that are not merged.
 
-Merge rules for `settings.json` and `mcp.json`:
+Merge rules for `settings.json`, `mcp.json`, and `budget.json`:
 
 - Objects merge recursively, so an overlay can add or change single keys.
 - Arrays of strings are unioned in order (e.g. `packages`), so overlays add to the base list.
@@ -33,21 +33,22 @@ Merge rules for `settings.json` and `mcp.json`:
 
 Other files: the last layer that has the file wins.
 
-`budget.json` is local-only: it is read from overlays and never comes from the repo base. Start from `budget.example.json`.
+`budget.json` is local-only: it has no repo base, so it comes only from `budget.local.json` and overlays. Start from `budget.example.json`.
+
+`./sync.sh push` writes `budget.json` back to `budget.local.json`. It skips `settings.json` and `mcp.json`, because those are composed and should be edited in the repo or in a local sibling.
 
 Project-level `.pi/mcp.json` and `.pi/settings.json` inside a repo are a further layer that pi applies itself. Use them for servers a single project needs.
 
 ## Setting up a machine
 
 ```sh
-mkdir -p .local
-cp budget.example.json .local/budget.json   # then set your limits and model prices
-# optional: .local/settings.json for default model, enabledModels, compaction overrides
+cp budget.example.json budget.local.json   # then set your limits and model prices
+# optional: settings.local.json for default model, enabledModels, compaction overrides
 # optional: mcp.local.json for servers that need your own commands or credentials
 ./sync.sh pull
 ```
 
-Example `.local/settings.json` (model IDs are whatever your provider exposes):
+Example `settings.local.json` (model IDs are whatever your provider exposes):
 
 ```json
 {

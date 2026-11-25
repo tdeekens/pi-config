@@ -5,8 +5,10 @@
 #   ./sync.sh push   copy allowlisted files from ~/.pi/agent back to the repo or overlays
 #
 # Layers, later wins:
-#   1. repo base: this directory (committed, generic), e.g. mcp.json
-#   2. sibling override: <name>.local.json next to a merged base file, e.g. mcp.local.json
+#   1. repo base: this directory (committed, generic), e.g. settings.json, mcp.json
+#      (none for LOCAL_ONLY files such as budget.json)
+#   2. sibling override: <name>.local.json next to a MERGED file, e.g. settings.local.json,
+#      mcp.local.json, budget.local.json. Gitignored.
 #   3. overlays: PI_CONFIG_OVERLAYS, a colon-separated list of directories.
 #      Default: ./.local (gitignored). Example for a work machine:
 #        PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/.local:$HOME/work/pi-overlay" ./sync.sh pull
@@ -14,12 +16,12 @@
 # Sibling *.local.json files and .local/ are gitignored. Keep credentials out of them
 # and use ${ENV_VAR} references instead.
 #
-# Merge rules for MERGED files (settings.json, mcp.json):
+# Merge rules for MERGED files:
 #   - objects merge recursively
 #   - arrays of strings are unioned, keeping order (e.g. packages)
 #   - any other array or value is replaced by the later layer
 # Other files: the last layer that has the file wins (whole-file replace).
-# LOCAL_ONLY files (budget.json) come from overlays only and are never committed.
+# push writes LOCAL_ONLY files back to their sibling <name>.local.json.
 #
 # Only the files in FILES are ever touched. Everything else in ~/.pi/agent
 # (auth, sessions, caches, installed packages) stays out of git.
@@ -59,8 +61,8 @@ FILES=(
   "extensions/powerline-footer/theme.json"
   "vibes/pirate.txt"
 )
-MERGED=("settings.json" "mcp.json")
-LOCAL_ONLY=("budget.json")
+MERGED=("settings.json" "mcp.json" "budget.json")
+LOCAL_ONLY=("budget.json")  # no repo base; comes from sibling and overlays only
 
 # Deep-merge JSON documents given in order (see rules above).
 MERGE_JQ='
@@ -133,10 +135,10 @@ push() {
   for rel in "${FILES[@]}"; do
     if [[ ! -f "$AGENT_DIR/$rel" ]]; then
       echo "  $rel (missing, skipped)"
+    elif contains "$rel" "${LOCAL_ONLY[@]}"; then
+      echo "  $rel (local only -> ${rel%.json}.local.json)"
     elif contains "$rel" "${MERGED[@]}"; then
       echo "  $rel (composed file: edit the repo base or overlays, not ~/.pi/agent; skipped)"
-    elif contains "$rel" "${LOCAL_ONLY[@]}"; then
-      echo "  $rel (local only -> ${OVERLAYS[0]})"
     else
       to_check+=("$AGENT_DIR/$rel")
     fi
@@ -145,9 +147,10 @@ push() {
 
   for rel in "${FILES[@]}"; do
     [[ -f "$AGENT_DIR/$rel" ]] || continue
-    contains "$rel" "${MERGED[@]}" && continue
     if contains "$rel" "${LOCAL_ONLY[@]}"; then
-      dst="${OVERLAYS[0]}/$rel"
+      dst="$REPO_DIR/${rel%.json}.local.json"
+    elif contains "$rel" "${MERGED[@]}"; then
+      continue
     else
       dst="$REPO_DIR/$rel"
       echo "  $rel"
