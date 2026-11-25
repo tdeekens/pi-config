@@ -41,8 +41,8 @@ test("path: home, repo root, inside repo, outside repo", () => {
 		"pi-config › extensions/budget",
 	);
 	assert.equal(
-		path(`${HOME}/Development/mcf/packages/app/src/components/table`, `${HOME}/Development/mcf`),
-		"mcf › …/app/src/components/table",
+		path(`${HOME}/Development/monorepo/packages/app/src/components/table`, `${HOME}/Development/monorepo`),
+		"monorepo › …/app/src/components/table",
 	);
 	assert.equal(path(`${HOME}/Downloads/tmp`), "~/Downloads/tmp");
 	assert.equal(path("/opt/homebrew"), "/opt/homebrew");

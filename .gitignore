@@ -1,1 +1,4 @@
 .DS_Store
+# machine-specific overlays and budget data (never committed)
+/local/
+/budget.json

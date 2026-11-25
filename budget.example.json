@@ -1,0 +1,13 @@
+{
+  "limits": {
+    "dailyEur": 10,
+    "weeklyEur": 50,
+    "monthlyEur": 150
+  },
+  "rolloutDate": "2000-01-01",
+  "weeklyResetDay": "monday",
+  "prices": {
+    "example-large-model": { "input": 3, "output": 15, "cacheWrite": 3.75, "cacheRead": 0.3 },
+    "example-small-model": { "input": 0.25, "output": 1.25, "cacheWrite": 0.3, "cacheRead": 0.03 }
+  }
+}

@@ -1,12 +1,12 @@
-// example budget estimator.
+// Budget estimator.
 // Estimates EUR spend from token usage on this machine and shows it in the footer:
 //   budget day €X/€40 · week €Y/€92 · month €Z/€400 (est)
 //
 // Configuration: ~/.pi/agent/budget.json (optional). Missing or invalid values fall back
 // to the defaults below. The file is re-read on each session start and each assistant reply.
 //
-// Estimates only: spend from other machines is not counted, and example's own accounting
-// is the source of truth.
+// Estimates only: spend from other machines is not counted, and the provider's own
+// accounting is the source of truth.
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, watch, type FSWatcher } from "node:fs";
 import { homedir } from "node:os";
@@ -35,18 +35,13 @@ interface BudgetConfig {
 	prices: Record<string, Price>; // EUR per 1M tokens, keyed by model id
 }
 
-// Defaults: budget from the example rollout post and the Vertex list-price table.
+// Generic defaults. Put real limits and prices in budget.json (see budget.example.json);
+// that file is machine-specific and not committed.
 const DEFAULT_CONFIG: BudgetConfig = {
-	limits: { dailyEur: 50, weeklyEur: 150, monthlyEur: 600 },
+	limits: { dailyEur: 10, weeklyEur: 50, monthlyEur: 150 },
 	rolloutDate: "2000-01-01",
-	weeklyResetDay: "thursday",
-	prices: {
-		"claude-opus-5-5": { input: 3.52, output: 17.6, cacheWrite: 4.4, cacheRead: 0.18 },
-		"claude-sonnet-5-5": { input: 1.76, output: 8.8, cacheWrite: 2.2, cacheRead: 0.09 },
-		"claude-haiku-5-5": { input: 0.09, output: 0.44, cacheWrite: 0.11, cacheRead: 0.01 },
-		"gemini-3-8-flash": { input: 1.32, output: 6.6, cacheWrite: 1.32, cacheRead: 0.13 },
-		"example-model-b": { input: 3.52, output: 17.6, cacheWrite: 3.52, cacheRead: 0.18 },
-	},
+	weeklyResetDay: "monday",
+	prices: {},
 };
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];

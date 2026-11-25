@@ -1,13 +1,8 @@
 {
   "mcpServers": {
-    "example": {
-      "type": "stdio",
-      "command": "example-cli",
-      "args": ["mcp"]
-    },
     "atlassian": {
       "url": "https://mcp.atlassian.com/v2/mcp",
-      "description": "Jira and Confluence (example.atlassian.net) via Atlassian's remote MCP"
+      "description": "Jira and Confluence via Atlassian's remote MCP"
     }
   }
 }

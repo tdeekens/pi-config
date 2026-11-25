@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
-# Sync an allowlisted subset of ~/.pi/agent to this repo and back.
+# Sync an allowlisted subset of ~/.pi/agent with this repo, using layered config.
 #
-#   ./sync.sh push   copy ~/.pi/agent (allowlisted files) -> this repo
-#   ./sync.sh pull   copy this repo -> ~/.pi/agent (allowlisted files)
+#   ./sync.sh pull   build ~/.pi/agent from the repo base plus overlays
+#   ./sync.sh push   copy allowlisted files from ~/.pi/agent back to the repo or overlays
 #
-# Only the files in FILES are ever copied. Everything else in ~/.pi/agent
+# Layers, later wins:
+#   1. repo base: this directory (committed, generic)
+#   2. overlays: PI_CONFIG_OVERLAYS, a colon-separated list of directories.
+#      Default: ./local (gitignored). Example for a work machine:
+#        PI_CONFIG_OVERLAYS="$HOME/Development/pi-config/local:$HOME/work/pi-overlay" ./sync.sh pull
+#
+# Merge rules for MERGED files (settings.json, mcp.json):
+#   - objects merge recursively
+#   - arrays of strings are unioned, keeping order (e.g. packages)
+#   - any other array or value is replaced by the later layer
+# Other files: the last layer that has the file wins (whole-file replace).
+# LOCAL_ONLY files (budget.json) come from overlays only and are never committed.
+#
+# Only the files in FILES are ever touched. Everything else in ~/.pi/agent
 # (auth, sessions, caches, installed packages) stays out of git.
 
 set -euo pipefail
 
 AGENT_DIR="${PI_CODING_AGENT_DIR:-$HOME/.pi/agent}"
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+OVERLAY_SPEC="${PI_CONFIG_OVERLAYS:-$REPO_DIR/local}"
+IFS=':' read -r -a OVERLAYS <<< "$OVERLAY_SPEC"
 
 FILES=(
   "settings.json"
+  "mcp.json"
   "budget.json"
   "pi-pretty.json"
   "web-search.json"
-  "mcp.json"
   "themes/kanagawa-wave.json"
   "themes/opencode-ayu.json"
   "themes/opencode-catppuccin.json"
@@ -40,6 +55,28 @@ FILES=(
   "extensions/powerline-footer/theme.json"
   "vibes/pirate.txt"
 )
+MERGED=("settings.json" "mcp.json")
+LOCAL_ONLY=("budget.json")
+
+# Deep-merge JSON documents given in order (see rules above).
+MERGE_JQ='
+def merge(a; b):
+  if (a|type) == "object" and (b|type) == "object" then
+    reduce (b | keys_unsorted[]) as $k (a;
+      .[$k] = (if (a | has($k)) then merge(a[$k]; b[$k]) else b[$k] end))
+  elif (a|type) == "array" and (b|type) == "array"
+       and (a | all(type == "string")) and (b | all(type == "string")) then
+    reduce ((a + b)[]) as $x ([]; if any(. == $x) then . else . + [$x] end)
+  else b end;
+reduce inputs as $doc (null; if . == null then $doc else merge(.; $doc) end)
+'
+
+contains() {
+  local needle="$1"; shift
+  local item
+  for item in "$@"; do [[ "$item" == "$needle" ]] && return 0; done
+  return 1
+}
 
 # Refuse to push anything that looks like a credential.
 check_secrets() {
@@ -52,29 +89,69 @@ check_secrets() {
   fi
 }
 
-copy() {
-  local src_root="$1" dst_root="$2"
+pull() {
+  echo "Building $AGENT_DIR from base + overlays (${OVERLAYS[*]}):"
+  local rel dst o src
   for rel in "${FILES[@]}"; do
-    if [[ -f "$src_root/$rel" ]]; then
-      mkdir -p "$dst_root/$(dirname "$rel")"
-      cp "$src_root/$rel" "$dst_root/$rel"
-      echo "  $rel"
-    else
+    local sources=()
+    if ! contains "$rel" "${LOCAL_ONLY[@]}" && [[ -f "$REPO_DIR/$rel" ]]; then
+      sources+=("$REPO_DIR/$rel")
+    fi
+    for o in "${OVERLAYS[@]}"; do
+      [[ -f "$o/$rel" ]] && sources+=("$o/$rel")
+    done
+    if [[ ${#sources[@]} -eq 0 ]]; then
       echo "  $rel (missing, skipped)"
+      continue
+    fi
+
+    dst="$AGENT_DIR/$rel"
+    mkdir -p "$(dirname "$dst")"
+    if contains "$rel" "${MERGED[@]}"; then
+      jq -n "$MERGE_JQ" "${sources[@]}" > "$dst.tmp"
+      mv "$dst.tmp" "$dst"
+      echo "  $rel (merged: ${#sources[@]} layers)"
+    else
+      src="${sources[${#sources[@]}-1]}"
+      cp "$src" "$dst"
+      echo "  $rel (from ${src#"$REPO_DIR"/})"
     fi
   done
 }
 
+push() {
+  echo "Pushing from $AGENT_DIR:"
+  local rel dst to_check=()
+  for rel in "${FILES[@]}"; do
+    if [[ ! -f "$AGENT_DIR/$rel" ]]; then
+      echo "  $rel (missing, skipped)"
+    elif contains "$rel" "${MERGED[@]}"; then
+      echo "  $rel (composed file: edit the repo base or overlays, not ~/.pi/agent; skipped)"
+    elif contains "$rel" "${LOCAL_ONLY[@]}"; then
+      echo "  $rel (local only -> ${OVERLAYS[0]})"
+    else
+      to_check+=("$AGENT_DIR/$rel")
+    fi
+  done
+  check_secrets "${to_check[@]+"${to_check[@]}"}"
+
+  for rel in "${FILES[@]}"; do
+    [[ -f "$AGENT_DIR/$rel" ]] || continue
+    contains "$rel" "${MERGED[@]}" && continue
+    if contains "$rel" "${LOCAL_ONLY[@]}"; then
+      dst="${OVERLAYS[0]}/$rel"
+    else
+      dst="$REPO_DIR/$rel"
+      echo "  $rel"
+    fi
+    mkdir -p "$(dirname "$dst")"
+    cp "$AGENT_DIR/$rel" "$dst"
+  done
+}
+
 case "${1:-}" in
-  push)
-    echo "Pushing from $AGENT_DIR:"
-    copy "$AGENT_DIR" "$REPO_DIR"
-    (cd "$REPO_DIR" && check_secrets "${FILES[@]}")
-    ;;
-  pull)
-    echo "Pulling into $AGENT_DIR:"
-    copy "$REPO_DIR" "$AGENT_DIR"
-    ;;
+  push) push ;;
+  pull) pull ;;
   *)
     echo "usage: $0 push|pull" >&2
     exit 2
