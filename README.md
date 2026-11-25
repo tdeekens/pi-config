@@ -1,15 +1,53 @@
 # pi-config
 
-Personal [pi](https://pi.dev) coding agent config. Shared, generic settings live here; machine- or employer-specific values live in local overlays that are never committed.
+Personal [pi](https://pi.dev) coding agent config. Shared, generic settings live here; machine- or employer-specific values live in local files that are never committed.
+
+## Setup
+
+Needs Node 18.3+. No other dependencies.
 
 ```sh
-./sync.mjs pull   # repo base + overlays -> ~/.pi/agent
-./sync.mjs push   # ~/.pi/agent -> repo (copyable files) or budget.local.json (local-only)
+cp budget.example.json budget.local.json   # then set your limits and model prices
+# optional: settings.local.json for default model, enabledModels, compaction overrides
+# optional: mcp.local.json for servers that need your own commands or credentials
+./sync.mjs pull                            # builds ~/.pi/agent from the repo plus your local files
 ```
 
-Needs Node 18.3+. No other dependencies. Run `./sync.mjs --help` for usage.
+After the first pull, sign in to Atlassian with `pi mcp login atlassian`.
 
-## Layers
+Example `settings.local.json` (model IDs are whatever your provider exposes):
+
+```json
+{
+  "defaultProvider": "my-provider",
+  "defaultModel": "my-model",
+  "enabledModels": ["my-provider/my-model"]
+}
+```
+
+Example `mcp.local.json`:
+
+```json
+{
+  "mcpServers": {
+    "my-server": { "type": "stdio", "command": "my-mcp-cli", "args": ["mcp"] }
+  }
+}
+```
+
+Keep credentials out of these files. Use `${ENV_VAR}` references in `env` and `headers`, as pi's MCP config supports. `pi mcp login` stores OAuth tokens in `~/.pi/agent`, which is not synced.
+
+## Commands
+
+```sh
+./sync.mjs pull   # repo base + local files -> ~/.pi/agent
+./sync.mjs push   # ~/.pi/agent -> repo (copyable files) or budget.local.json (local-only)
+./sync.mjs --help
+```
+
+`push` writes `budget.json` back to `budget.local.json`. It skips `settings.json` and `mcp.json`, because those are composed. Edit them in the repo or in their `.local.json` sibling instead.
+
+## How the layers work
 
 Config is built from layers. Later layers win.
 
@@ -35,47 +73,14 @@ Merge rules for `settings.json`, `mcp.json`, and `budget.json`:
 
 Other files: the last layer that has the file wins.
 
-`budget.json` is local-only: it has no repo base, so it comes only from `budget.local.json` and overlays. Start from `budget.example.json`.
-
-`./sync.mjs push` writes `budget.json` back to `budget.local.json`. It skips `settings.json` and `mcp.json`, because those are composed and should be edited in the repo or in a local sibling.
+`budget.json` is local-only: it has no repo base, so it comes only from `budget.local.json` and overlays.
 
 Project-level `.pi/mcp.json` and `.pi/settings.json` inside a repo are a further layer that pi applies itself. Use them for servers a single project needs.
-
-## Setting up a machine
-
-```sh
-cp budget.example.json budget.local.json   # then set your limits and model prices
-# optional: settings.local.json for default model, enabledModels, compaction overrides
-# optional: mcp.local.json for servers that need your own commands or credentials
-./sync.mjs pull
-```
-
-Example `settings.local.json` (model IDs are whatever your provider exposes):
-
-```json
-{
-  "defaultProvider": "my-provider",
-  "defaultModel": "my-model",
-  "enabledModels": ["my-provider/my-model"]
-}
-```
-
-Example `mcp.local.json`:
-
-```json
-{
-  "mcpServers": {
-    "my-server": { "type": "stdio", "command": "my-mcp-cli", "args": ["mcp"] }
-  }
-}
-```
-
-Keep credentials out of these files. Use `${ENV_VAR}` references in `env` and `headers`, as pi's MCP config supports. Also, `pi mcp login` stores OAuth tokens in `~/.pi/agent`, which is not synced.
 
 ## Contents
 
 - `settings.json`: theme, powerline layout, packages, extension settings (merged with overlays)
-- `mcp.json`: MCP servers shared by all machines (merged with overlays). After a pull, sign in with `pi mcp login atlassian`.
+- `mcp.json`: MCP servers shared by all machines (merged with overlays)
 - `extensions/budget/`: estimated spend in the footer, plus a `/budget` overlay. Limits and prices come from `budget.json`. Test with `node --experimental-strip-types extensions/budget/test.ts`.
 - `extensions/context-meter/`: context bar in the footer plus a `/context` grid overlay. Test with `node --experimental-strip-types extensions/context-meter/test.ts`.
 - `extensions/footer-segments/`: thinking dots (`●●●○○`) and a smart path (`~`, `repo › sub/dir`, or `~/abbreviated`). Test with `node --experimental-strip-types extensions/footer-segments/test.ts`.
