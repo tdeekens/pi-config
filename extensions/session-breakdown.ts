@@ -16,7 +16,7 @@
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { BorderedLoader } from "@earendil-works/pi-coding-agent";
+import { BorderedLoader, DynamicBorder } from "@earendil-works/pi-coding-agent";
 import {
 	Key,
 	matchesKey,
@@ -1477,7 +1477,8 @@ class BreakdownComponent implements Component {
 		if (rows <= 0) return 12;
 		// Fixed chrome above/around the table: header, help, blank, summary,
 		// blank, graph (7), blank, table header + divider (2), plus some margin.
-		const overhead = 17;
+		// Overlay adds top/bottom borders and the modal height is capped at 90% of the terminal.
+		const overhead = 20;
 		return Math.max(4, Math.min(12, rows - overhead));
 	}
 
@@ -1716,6 +1717,36 @@ class BreakdownComponent implements Component {
 	}
 }
 
+/** Floating frame for the breakdown: borders plus a one-column padding on each side. */
+class BorderedModal implements Component {
+	private inner: Component;
+	private border: DynamicBorder;
+
+	constructor(inner: Component, border: (s: string) => string) {
+		this.inner = inner;
+		this.border = new DynamicBorder(border);
+	}
+
+	invalidate(): void {
+		this.inner.invalidate();
+		this.border.invalidate();
+	}
+
+	handleInput(data: string): void {
+		this.inner.handleInput?.(data);
+	}
+
+	render(width: number): string[] {
+		const innerWidth = Math.max(10, width - 4);
+		const body = this.inner.render(innerWidth).map((line) => {
+			const padding = " ".repeat(Math.max(0, innerWidth - visibleWidth(line)));
+			return `  ${line}${padding}  `;
+		});
+		const blank = " ".repeat(width);
+		return [...this.border.render(width), blank, ...body, blank, ...this.border.render(width)];
+	}
+}
+
 export default function sessionBreakdownExtension(pi: ExtensionAPI) {
 	pi.registerCommand("session-breakdown", {
 		description: "Interactive breakdown of last 7/30/90 days of ~/.pi session usage (sessions/messages/tokens + cost by model)",
@@ -1799,9 +1830,13 @@ export default function sessionBreakdownExtension(pi: ExtensionAPI) {
 				return;
 			}
 
-			await ctx.ui.custom<void>((tui, _theme, _kb, done) => {
-				return new BreakdownComponent(data, tui, done);
-			});
+			await ctx.ui.custom<void>(
+				(tui, theme, _kb, done) => {
+					const border = (s: string) => theme.fg("borderAccent", s);
+					return new BorderedModal(new BreakdownComponent(data, tui, done), border);
+				},
+				{ overlay: true, overlayOptions: { width: "90%", minWidth: 60, maxHeight: "90%" } },
+			);
 		},
 	});
 }
